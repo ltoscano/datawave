@@ -41,6 +41,62 @@ import java.util.Set;
 public class IndexIterator implements SortedKeyValueIterator<Key,Value>, DocumentIterator, CompositePredicateFilterer {
     private static final Logger log = Logger.getLogger(IndexIterator.class);
     
+    public static class Builder<T extends IndexIterator,B extends Builder<T,B>> {
+        protected Text field;
+        protected Text value;
+        protected SortedKeyValueIterator<Key,Value> source;
+        protected TimeFilter timeFilter = TimeFilter.alwaysTrue();
+        protected boolean buildDocument = false;
+        protected TypeMetadata typeMetadata;
+        protected Predicate<Key> datatypeFilter = Predicates.alwaysTrue();
+        protected FieldIndexAggregator aggregation;
+        protected Map<String,Map<String,CompositePredicateFilter>> compositePredicateFilters;
+        
+        protected Builder(Text field, Text value, SortedKeyValueIterator<Key,Value> source) {
+            this.field = field;
+            this.value = value;
+            this.source = source;
+        }
+        
+        public B withTimeFilter(TimeFilter timeFilter) {
+            this.timeFilter = timeFilter;
+            return (B) this;
+        }
+        
+        public B shouldBuildDocument(boolean buildDocument) {
+            this.buildDocument = buildDocument;
+            return (B) this;
+        }
+        
+        public B withTypeMetadata(TypeMetadata typeMetadata) {
+            this.typeMetadata = typeMetadata;
+            return (B) this;
+        }
+        
+        public B withDatatypeFilter(Predicate<Key> datatypeFilter) {
+            this.datatypeFilter = datatypeFilter;
+            return (B) this;
+        }
+        
+        public B withAggregation(FieldIndexAggregator aggregation) {
+            this.aggregation = aggregation;
+            return (B) this;
+        }
+        
+        public B withCompositePredicateFilters(Map<String,Map<String,CompositePredicateFilter>> compositePredicateFilters) {
+            this.compositePredicateFilters = compositePredicateFilters;
+            return (B) this;
+        }
+        
+        public T build() {
+            return (T) new IndexIterator(this);
+        }
+    }
+    
+    public static Builder builder(Text field, Text value, SortedKeyValueIterator<Key,Value> source) {
+        return new Builder(field, value, source);
+    }
+    
     public static final String INDEX_FILTERING_CLASSES = "indexfiltering.classes";
     
     protected SortedKeyValueIterator<Key,Value> source;
@@ -68,20 +124,13 @@ public class IndexIterator implements SortedKeyValueIterator<Key,Value>, Documen
     protected SeekingFilter timeSeekingFilter;
     private Map<String,Map<String,CompositePredicateFilter>> compositePredicateFilters;
     
-    /**
-     * A convenience constructor that allows all keys to pass through unmodified from the source.
-     * 
-     * @param field
-     * @param value
-     * @param source
-     */
-    public IndexIterator(Text field, Text value, SortedKeyValueIterator<Key,Value> source, TimeFilter timeFilter) {
-        this(field, value, source, timeFilter, null, false, Predicates.<Key> alwaysTrue(), new IdentityAggregator(null, null), null);
+    protected IndexIterator(Builder builder) {
+        this(builder.field, builder.value, builder.source, builder.timeFilter, builder.typeMetadata, builder.buildDocument, builder.datatypeFilter,
+                        builder.aggregation, builder.compositePredicateFilters);
     }
     
-    public IndexIterator(Text field, Text value, SortedKeyValueIterator<Key,Value> source, TimeFilter timeFilter, TypeMetadata typeMetadata,
-                    boolean buildDocument, Predicate<Key> datatypeFilter, FieldIndexAggregator aggregator,
-                    Map<String,Map<String,CompositePredicateFilter>> compositePredicateFilters) {
+    IndexIterator(Text field, Text value, SortedKeyValueIterator<Key,Value> source, TimeFilter timeFilter, TypeMetadata typeMetadata, boolean buildDocument,
+                    Predicate<Key> datatypeFilter, FieldIndexAggregator aggregator, Map<String,Map<String,CompositePredicateFilter>> compositePredicateFilters) {
         
         valueMinPrefix = Util.minPrefix(value);
         
